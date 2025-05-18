@@ -11,10 +11,6 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Обслуживание статических файлов React-приложения
-// Предполагается, что папка 'dist' находится в корне проекта, на один уровень выше 'api'
-app.use(express.static(path.join(__dirname, '..', 'dist')));
-
 // Подключение к базе данных
 // Используем переменную окружения для пути к БД, если она задана
 const DATABASE_PATH = process.env.DATABASE_PATH || path.join(__dirname, 'furnitrack.db');
@@ -372,6 +368,10 @@ app.delete('/api/assembly-records/:id', (req, res) => {
     res.json({ message: 'Запись о сборке удалена' });
   });
 });
+
+// Обслуживание статических файлов React-приложения
+// Предполагается, что папка 'dist' находится в корне проекта, на один уровень выше 'api'
+app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 // Все остальные GET-запросы, не соответствующие API, перенаправляем на index.html для поддержки SPA
 app.get('*', (req, res) => {
