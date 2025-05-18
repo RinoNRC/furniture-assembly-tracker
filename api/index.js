@@ -76,7 +76,6 @@ function createTables() {
   });
 }
 
-/*
 // Маршруты API
 
 // Получение списка сотрудников
@@ -361,23 +360,15 @@ app.delete('/api/assembly-records/:id', (req, res) => {
     res.json({ message: 'Запись о сборке удалена' });
   });
 });
-*/
 
 // Обслуживание статических файлов React-приложения
 // Предполагается, что папка 'dist' находится в корне проекта, на один уровень выше 'api'
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
-/*
-// Все остальные GET-запросы, не соответствующие API, перенаправляем на index.html для поддержки SPA
-app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api/')) { // Убедимся, что это не API запрос
-    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
-  } else {
-    // Если это все же /api/ запрос, который не был обработан, вернуть 404
-    res.status(404).json({ message: 'API endpoint not found' });
-  }
+// Новый, более безопасный SPA fallback
+app.get(/^(?!\/api\/).*$/, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
-*/
 
 // Запуск сервера
 app.listen(PORT, () => {
