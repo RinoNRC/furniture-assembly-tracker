@@ -366,6 +366,7 @@ app.delete('/api/assembly-records/:id', (req, res) => {
 // Предполагается, что папка 'dist' находится в корне проекта, на один уровень выше 'api'
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
+/*
 // Все остальные GET-запросы, не соответствующие API, перенаправляем на index.html для поддержки SPA
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api/')) { // Убедимся, что это не API запрос
@@ -375,6 +376,7 @@ app.get('*', (req, res) => {
     res.status(404).json({ message: 'API endpoint not found' });
   }
 });
+*/
 
 // Запуск сервера
 app.listen(PORT, () => {
