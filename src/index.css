@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Slave';
+  src: url('./assets/fonts/slave.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'PublicPixel';
+  src: url('./assets/fonts/PublicPixel.ttf') format('truetype'); /* Исправлен путь */
+  font-weight: normal;
+  font-style: normal;
+}
+
+body {
+  font-family: 'Slave', sans-serif;
+  @apply bg-white text-gray-800; /* Стили для светлой темы по умолчанию */
+  overflow-y: scroll; /* Всегда показывать вертикальную полосу прокрутки */
+}
+
+.dark body {
+  @apply bg-dark-background text-dark-text; /* Стили для темной темы */
+}
+
+/* Анимации для строк таблицы сотрудников */
+.employee-row-enter {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+.employee-row-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms ease-out, transform 300ms ease-out;
+}
+.employee-row-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+.employee-row-exit-active {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 300ms ease-in, transform 300ms ease-in;
+}
