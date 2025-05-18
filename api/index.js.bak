@@ -76,7 +76,6 @@ function createTables() {
   });
 }
 
-/*
 // Маршруты API
 
 // Получение списка сотрудников
@@ -98,6 +97,7 @@ app.post('/api/employees', (req, res) => {
   console.log('POST /api/employees - Добавление сотрудника:', req.body);
   const { id, name, position, rate, hireDate, contactInfo } = req.body;
   const currentTime = new Date().toISOString();
+  // Включаем createdAt и updatedAt в возвращаемый объект
   const newEmployee = { id, name, position, rate, hireDate, contactInfo, createdAt: currentTime, updatedAt: currentTime }; 
 
   db.run(
@@ -110,7 +110,7 @@ app.post('/api/employees', (req, res) => {
         return;
       }
       console.log('Сотрудник добавлен, id:', id);
-      res.status(201).json(newEmployee);
+      res.status(201).json(newEmployee); // Возвращаем созданный объект и статус 201
     }
   );
 });
@@ -121,6 +121,10 @@ app.put('/api/employees/:id', (req, res) => {
   const { name, position, rate, hireDate, contactInfo } = req.body;
   const employeeId = req.params.id;
   const currentTime = new Date().toISOString();
+  // Включаем updatedAt в возвращаемый объект. createdAt не меняется или берется из БД.
+  // Для простоты здесь мы его не возвращаем явно, но в реальном SELECT после UPDATE он был бы.
+  // Однако, поскольку мы конструируем объект для ответа вручную, добавим updatedAt.
+  // createdAt можно было бы получить отдельным SELECT, но для текущей логики AppContext это не критично.
   const updatedEmployeeData = { id: employeeId, name, position, rate, hireDate, contactInfo, updatedAt: currentTime }; 
 
   db.run(
@@ -136,6 +140,7 @@ app.put('/api/employees/:id', (req, res) => {
         return res.status(404).json({ error: 'Сотрудник не найден' });
       }
       console.log('Сотрудник обновлен, id:', employeeId);
+      // Чтобы вернуть createdAt, нужен был бы SELECT. Пока возвращаем то, что есть.
       res.json(updatedEmployeeData); 
     }
   );
@@ -186,7 +191,7 @@ app.post('/api/locations', (req, res) => {
         return;
       }
       console.log('Объект добавлен, id:', id);
-      res.status(201).json(newLocation);
+      res.status(201).json(newLocation); // Возвращаем созданный объект и статус 201
     }
   );
 });
@@ -240,6 +245,7 @@ app.get('/api/assembly-records', (req, res) => {
       res.status(500).json({ error: err.message });
       return;
     }
+    // Десериализация items
     const recordsWithItems = rows.map(record => ({
       ...record,
       items: record.items ? JSON.parse(record.items) : []
@@ -257,6 +263,7 @@ app.post('/api/assembly-records', (req, res) => {
   
   const itemsArray = Array.isArray(items) ? items : [];
   const itemsJson = JSON.stringify(itemsArray); 
+  // Вычисляем общее количество из items
   const calculatedQuantity = itemsArray.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
 
   const newRecord = { id, employeeId, locationId, date, items: itemsArray, notes, quantity: calculatedQuantity, totalPrice, createdAt: currentTime, updatedAt: currentTime };
@@ -271,7 +278,7 @@ app.post('/api/assembly-records', (req, res) => {
         return;
       }
       console.log('Запись о сборке добавлена, id:', id);
-      res.status(201).json(newRecord);
+      res.status(201).json(newRecord); // Возвращаем созданный объект (с items как массив) и статус 201
     }
   );
 });
@@ -280,7 +287,7 @@ app.post('/api/assembly-records', (req, res) => {
 app.post('/api/assembly-records/batch', (req, res) => {
   console.log('POST /api/assembly-records/batch - Массовое добавление записей:', req.body.length);
   const records = req.body;
-  const createdRecords = [];
+  const createdRecords = []; // Массив для хранения созданных записей
   const currentTime = new Date().toISOString();
   
   db.serialize(() => {
@@ -294,13 +301,14 @@ app.post('/api/assembly-records/batch', (req, res) => {
       const calculatedQuantity = itemsArray.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
       
       stmt.run(record.id, record.employeeId, record.locationId, record.date, itemsJson, record.notes, calculatedQuantity, record.totalPrice, currentTime);
+      // Сохраняем запись в том виде, как она должна быть возвращена (с items как массив)
       createdRecords.push({ ...record, items: itemsArray, quantity: calculatedQuantity, createdAt: currentTime, updatedAt: currentTime });
     });
     
     stmt.finalize((err) => {
       if (err) {
         db.run('ROLLBACK');
-        console.error('Ошибка при массовом добавлении записей (финализация): ', err.message);
+        console.error('Ошибка при массовом добавлении записей (финализация):', err.message);
         res.status(500).json({ error: err.message });
         return;
       }
@@ -311,7 +319,7 @@ app.post('/api/assembly-records/batch', (req, res) => {
           return;
         }
         console.log(`Добавлено ${records.length} записей о сборке`);
-        res.status(201).json(createdRecords);
+        res.status(201).json(createdRecords); // Возвращаем массив созданных объектов
       });
     });
   });
@@ -343,7 +351,7 @@ app.put('/api/assembly-records/:id', (req, res) => {
         return res.status(404).json({ error: 'Запись о сборке не найдена' });
       }
       console.log('Запись о сборке обновлена, id:', recordId);
-      res.json(updatedRecordData);
+      res.json(updatedRecordData); // Возвращаем обновленный объект (с items как массив)
     }
   );
 });
@@ -361,13 +369,11 @@ app.delete('/api/assembly-records/:id', (req, res) => {
     res.json({ message: 'Запись о сборке удалена' });
   });
 });
-*/
 
 // Обслуживание статических файлов React-приложения
 // Предполагается, что папка 'dist' находится в корне проекта, на один уровень выше 'api'
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
-/*
 // Все остальные GET-запросы, не соответствующие API, перенаправляем на index.html для поддержки SPA
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api/')) { // Убедимся, что это не API запрос
@@ -377,7 +383,6 @@ app.get('*', (req, res) => {
     res.status(404).json({ message: 'API endpoint not found' });
   }
 });
-*/
 
 // Запуск сервера
 app.listen(PORT, () => {
