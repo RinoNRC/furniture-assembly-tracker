@@ -7,7 +7,6 @@ import Select from '../components/ui/Select';
 import { Plus, Edit, Trash2, X, Search, Filter, AlertTriangle, ClipboardList, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { AssemblyRecord } from '../types';
 import { v4 as uuidv4 } from 'uuid';
-import { getAppSettings } from '../services/SettingsService';
 import { format, parseISO, isBefore, isAfter, compareDesc, compareAsc } from 'date-fns';
 
 // Определяем интерфейс для строки мебели в форме
@@ -32,6 +31,7 @@ const AssemblyRecords: React.FC = () => {
     addAssemblyRecord,
     updateAssemblyRecord,
     deleteAssemblyRecord,
+    appSettings,
   } = useAppContext();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,9 +48,6 @@ const AssemblyRecords: React.FC = () => {
   ]);
 
   const [isEditing, setIsEditing] = useState(false);
-  
-  // Получаем ставку налога из настроек
-  const [taxRate, setTaxRate] = useState(0);
   
   // Состояния для кастомных диалогов
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
@@ -88,12 +85,6 @@ const AssemblyRecords: React.FC = () => {
   const [itemDetailsBackdropAnimationClass, setItemDetailsBackdropAnimationClass] = useState("bg-transparent");
 
   useEffect(() => {
-    const settings = getAppSettings();
-    setTaxRate(settings.taxRate);
-  }, []);
-
-  // useEffect для управления анимацией основного модального окна
-  useEffect(() => {
     if (isModalOpen) {
       setIsModalActuallyVisible(true);
       requestAnimationFrame(() => {
@@ -110,7 +101,6 @@ const AssemblyRecords: React.FC = () => {
     }
   }, [isModalOpen]);
 
-  // useEffect для анимации НОВОГО модального окна "Детализация позиций"
   useEffect(() => {
     if (isItemDetailsModalOpen) {
       setIsItemDetailsModalActuallyVisible(true);
@@ -123,7 +113,6 @@ const AssemblyRecords: React.FC = () => {
       setItemDetailsModalAnimationClass("opacity-0 scale-95");
       const timer = setTimeout(() => {
         setIsItemDetailsModalActuallyVisible(false);
-        // Сбрасываем выбранную запись после закрытия анимации, чтобы избежать показа старых данных при быстром повторном открытии
         if (!isItemDetailsModalOpen) { 
             setSelectedRecordForDetails(null);
         }
@@ -132,30 +121,25 @@ const AssemblyRecords: React.FC = () => {
     }
   }, [isItemDetailsModalOpen]);
 
-  // Эффект для управления прокруткой body при открытии/закрытии основного модального окна
   useEffect(() => {
     if (isModalActuallyVisible) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'auto';
     }
-    // Очистка при размонтировании компонента
     return () => {
       document.body.style.overflow = 'auto';
     };
   }, [isModalActuallyVisible]);
 
-  // Эффект для управления прокруткой body при открытии/закрытии модального окна "Детализация позиций"
   useEffect(() => {
     if (isItemDetailsModalActuallyVisible) {
       document.body.style.overflow = 'hidden';
     } else {
-      // Только сбрасывать overflow, если другие модальные окна тоже не активны
       if (!isModalActuallyVisible && !isConfirmDialogOpen && !isAlertDialogOpen) {
         document.body.style.overflow = 'auto';
       }
     }
-    // Очистка при размонтировании компонента или изменении состояния
     return () => {
       if (!isModalActuallyVisible && !isConfirmDialogOpen && !isAlertDialogOpen) {
          document.body.style.overflow = 'auto';
@@ -163,7 +147,6 @@ const AssemblyRecords: React.FC = () => {
     };
   }, [isItemDetailsModalActuallyVisible, isModalActuallyVisible, isConfirmDialogOpen, isAlertDialogOpen]);
 
-  // Эффект для управления прокруткой body при открытии/закрытии ConfirmDialog
   useEffect(() => {
     if (isConfirmDialogOpen) {
       document.body.style.overflow = 'hidden';
@@ -179,7 +162,6 @@ const AssemblyRecords: React.FC = () => {
     };
   }, [isConfirmDialogOpen, isModalActuallyVisible, isItemDetailsModalActuallyVisible, isAlertDialogOpen]);
 
-  // Эффект для управления прокруткой body при открытии/закрытии AlertDialog
   useEffect(() => {
     if (isAlertDialogOpen) {
       document.body.style.overflow = 'hidden';
@@ -256,6 +238,8 @@ const AssemblyRecords: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    const currentDefaultPercentage = appSettings?.defaultPercentage ?? 0;
+    
     if (furnitureEntries.length === 0 || !furnitureEntries.some(entry => entry.name.trim() && entry.quantity > 0)) {
       setAlertDialogMessage('Добавьте хотя бы один вид мебели с названием и количеством!');
       setIsAlertDialogOpen(true);
@@ -265,14 +249,14 @@ const AssemblyRecords: React.FC = () => {
     const itemsForRecord = furnitureEntries
       .filter(entry => entry.name.trim() && entry.quantity > 0)
       .map(entry => {
-        const priceWithTax = entry.price - (entry.price * taxRate / 100);
+        const priceWithDeduction = entry.price - (entry.price * currentDefaultPercentage / 100);
         return {
           id: entry.id, 
           name: entry.name.trim(),
           quantity: entry.quantity,
-          price: entry.price, 
-          priceWithTax: parseFloat(priceWithTax.toFixed(2)),
-          totalItemPriceWithTax: parseFloat((priceWithTax * entry.quantity).toFixed(2)),
+          price: entry.price,
+          priceWithTax: parseFloat(priceWithDeduction.toFixed(2)),
+          totalItemPriceWithTax: parseFloat((priceWithDeduction * entry.quantity).toFixed(2)),
         };
       });
 
@@ -405,7 +389,6 @@ const AssemblyRecords: React.FC = () => {
     setIsConfirmDialogOpen(false);
   };
 
-  // Функция для запроса сортировки
   const requestSort = (key: SortConfig['key']) => {
     let direction: 'ascending' | 'descending' = 'ascending';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -414,11 +397,9 @@ const AssemblyRecords: React.FC = () => {
     setSortConfig({ key, direction });
   };
 
-  // Мемоизированный отсортированный и отфильтрованный список записей
   const sortedAndFilteredRecords = useMemo(() => {
     let DUMMY_SORT_FIELD_records = [...assemblyRecords];
 
-    // Apply search term
     if (searchTerm) {
       DUMMY_SORT_FIELD_records = DUMMY_SORT_FIELD_records.filter(record => {
         const employee = employees.find(emp => emp.id === record.employeeId);
@@ -432,7 +413,6 @@ const AssemblyRecords: React.FC = () => {
       });
     }
     
-    // Apply filters
     if (filters.employeeId) {
       DUMMY_SORT_FIELD_records = DUMMY_SORT_FIELD_records.filter(record => record.employeeId === filters.employeeId);
     }
@@ -446,7 +426,6 @@ const AssemblyRecords: React.FC = () => {
       DUMMY_SORT_FIELD_records = DUMMY_SORT_FIELD_records.filter(record => !isAfter(parseISO(record.date), parseISO(filters.dateTo)));
     }
     
-    // Apply sorting
     if (sortConfig !== null) {
       DUMMY_SORT_FIELD_records.sort((a, b) => {
         let aValue: any;
@@ -491,14 +470,12 @@ const AssemblyRecords: React.FC = () => {
     return DUMMY_SORT_FIELD_records;
   }, [assemblyRecords, searchTerm, filters, sortConfig, employees, locations]);
 
-  // Calculate totals for filtered records
   const totalItems = sortedAndFilteredRecords.reduce((sum, record) => {
     const itemsQuantity = record.items ? record.items.reduce((itemSum, item) => itemSum + item.quantity, 0) : 0;
     return sum + itemsQuantity;
   }, 0);
   const totalValue = sortedAndFilteredRecords.reduce((sum, record) => sum + record.totalPrice, 0);
 
-  // Helper to render sort icon
   const renderSortIcon = (columnKey: SortConfig['key']) => {
     if (!sortConfig || sortConfig.key !== columnKey) {
       return <ArrowUpDown className="ml-1 h-3 w-3 text-gray-400 dark:text-gray-500" />;
@@ -509,7 +486,6 @@ const AssemblyRecords: React.FC = () => {
     return <ArrowDown className="ml-1 h-3 w-3 text-indigo-600 dark:text-indigo-400" />;
   };
 
-  // Функции для НОВОГО модального окна "Детализация позиций"
   const handleOpenItemDetailsModal = (record: AssemblyRecord) => {
     setSelectedRecordForDetails(record);
     setIsItemDetailsModalOpen(true);
@@ -517,7 +493,6 @@ const AssemblyRecords: React.FC = () => {
 
   const handleCloseItemDetailsModal = () => {
     setIsItemDetailsModalOpen(false);
-    // setSelectedRecordForDetails(null); // Сбрасываем здесь или в useEffect, чтобы не было "прыжка" данных
   };
 
   return (
@@ -536,7 +511,6 @@ const AssemblyRecords: React.FC = () => {
         </Button>
       </div>
 
-      {/* Search and Filters */}
       <Card className="p-0">
         <div className="p-4 border-b border-gray-200 dark:border-dark-border">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -610,7 +584,6 @@ const AssemblyRecords: React.FC = () => {
           )}
         </div>
 
-        {/* Summary Stats */}
         <div className="p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-dark-border flex flex-wrap gap-4">
           <div className="px-4 py-2 bg-white dark:bg-dark-card rounded-md shadow-sm">
             <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Записи</p>
@@ -626,7 +599,6 @@ const AssemblyRecords: React.FC = () => {
           </div>
         </div>
 
-        {/* Records Table */}
         {sortedAndFilteredRecords.length === 0 ? (
           <div className="text-center py-12 px-6">
             <ClipboardList className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
@@ -759,15 +731,14 @@ const AssemblyRecords: React.FC = () => {
         )}
       </Card>
 
-      {/* Add/Edit Record Modal */}
       {isModalActuallyVisible && (
         <div 
           className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-300 ease-in-out ${backdropAnimationClass}`}
-          onClick={handleCloseModal} // Закрытие по клику на фон
+          onClick={handleCloseModal}
         >
           <div 
-            className={`bg-white dark:bg-dark-card rounded-lg shadow-xl p-6 space-y-6 transform transition-all duration-300 ease-in-out w-full max-w-3xl ${modalAnimationClass} overflow-y-auto max-h-[90vh] pb-20 sm:pb-6`} // Изменено max-w-2xl на max-w-4xl
-            onClick={(e) => e.stopPropagation()} // Предотвращаем закрытие по клику внутри модалки
+            className={`bg-white dark:bg-dark-card rounded-lg shadow-xl p-6 space-y-6 transform transition-all duration-300 ease-in-out w-full max-w-3xl ${modalAnimationClass} overflow-y-auto max-h-[90vh] pb-20 sm:pb-6`}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-dark-text">
@@ -780,7 +751,7 @@ const AssemblyRecords: React.FC = () => {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4"> {/* Удален класс p-6, добавлены внутренние отступы space-y-4 если нужно */} 
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 mb-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Select
@@ -817,55 +788,56 @@ const AssemblyRecords: React.FC = () => {
                 <h4 className="text-md font-medium text-gray-700 dark:text-gray-300">Собранная мебель</h4>
               </div>
 
-              {/* Контейнер для скролла позиций мебели */}
-              <div className="max-h-[250px] overflow-y-auto pr-2 mb-4 space-y-4"> 
-                {/* Строки с мебелью */}
-                {furnitureEntries.map((entry, index) => (
-                  <div key={entry.id} className="p-3 border border-gray-200 dark:border-dark-border rounded-md bg-gray-50 dark:bg-gray-700">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Позиция {index + 1}</span>
-                      {furnitureEntries.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeFurnitureEntry(entry.id)}
-                          className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
+              <div className="max-h-[250px] overflow-y-auto pr-2 mb-4 space-y-4">
+                {furnitureEntries.map((entry, index) => {
+                  const currentDefaultPercentage = appSettings?.defaultPercentage ?? 0;
+                  return (
+                    <div key={entry.id} className="p-3 border border-gray-200 dark:border-dark-border rounded-md bg-gray-50 dark:bg-gray-700">
+                      <div className="flex justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Позиция {index + 1}</span>
+                        {furnitureEntries.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeFurnitureEntry(entry.id)}
+                            className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Input
+                          label="Название мебели"
+                          placeholder="Шкаф, стол, стул и т.д."
+                          value={entry.name}
+                          onChange={(e) => handleFurnitureEntryChange(entry.id, 'name', e.target.value)}
+                          required
+                        />
+                        <Input
+                          label="Количество"
+                          type="number"
+                          min="1"
+                          value={entry.quantity}
+                          onChange={(e) => handleFurnitureEntryChange(entry.id, 'quantity', e.target.value)}
+                          required
+                        />
+                        <Input
+                          label="Цена за единицу (₽)"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={entry.price}
+                          onChange={(e) => handleFurnitureEntryChange(entry.id, 'price', e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="mt-2 text-right text-sm font-medium text-indigo-700 dark:text-indigo-400">
+                        Итого с учетом вычета {currentDefaultPercentage}%: {((entry.quantity * entry.price) - (entry.quantity * entry.price * currentDefaultPercentage / 100)).toFixed(2)} ₽
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Input
-                        label="Название мебели"
-                        placeholder="Шкаф, стол, стул и т.д."
-                        value={entry.name}
-                        onChange={(e) => handleFurnitureEntryChange(entry.id, 'name', e.target.value)}
-                        required
-                      />
-                      <Input
-                        label="Количество"
-                        type="number"
-                        min="1"
-                        value={entry.quantity}
-                        onChange={(e) => handleFurnitureEntryChange(entry.id, 'quantity', e.target.value)}
-                        required
-                      />
-                      <Input
-                        label="Цена за единицу (₽)"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={entry.price}
-                        onChange={(e) => handleFurnitureEntryChange(entry.id, 'price', e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="mt-2 text-right text-sm font-medium text-indigo-700 dark:text-indigo-400">
-                      Итого с учетом вычета {taxRate}%: {((entry.quantity * entry.price) - (entry.quantity * entry.price * taxRate / 100)).toFixed(2)} ₽
-                    </div>
-                  </div>
-                ))}
-              </div> {/* Закрываем контейнер для скролла */}
+                  );
+                })}
+              </div>
 
               <Button
                 type="button"
@@ -911,11 +883,10 @@ const AssemblyRecords: React.FC = () => {
         </div>
       )}
 
-      {/* НОВОЕ Модальное окно "Детализация позиций" */}
       {isItemDetailsModalActuallyVisible && selectedRecordForDetails && (
         <div 
           className={[
-            "fixed inset-0 flex items-center justify-center z-[60] p-4", // z-index выше, чем у основного модального (z-50)
+            "fixed inset-0 flex items-center justify-center z-[60] p-4",
             "transition-opacity duration-300 ease-in-out",
             itemDetailsBackdropAnimationClass
           ].join(' ')}
@@ -923,10 +894,10 @@ const AssemblyRecords: React.FC = () => {
         >
           <div 
             className={[
-              "bg-white dark:bg-dark-card rounded-lg shadow-xl w-full max-w-2xl", // max-w-2xl, можно настроить
+              "bg-white dark:bg-dark-card rounded-lg shadow-xl w-full max-w-2xl",
               "transition-all duration-300 ease-in-out",
               itemDetailsModalAnimationClass,
-              "flex flex-col" // Для правильного расположения футера с кнопкой
+              "flex flex-col"
             ].join(' ')}
             onClick={(e) => e.stopPropagation()}
           >
@@ -941,27 +912,30 @@ const AssemblyRecords: React.FC = () => {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-130px)]"> {/* Вычитаем примерную высоту хедера и футера */} 
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-130px)]">
               {selectedRecordForDetails.items.length > 0 ? (
                 <ul className="space-y-3">
-                  {selectedRecordForDetails.items.map((item, index) => (
-                    <li key={item.id || index} className="p-3 border border-gray-200 dark:border-dark-border rounded-md bg-gray-50 dark:bg-gray-700">
-                      <h4 className="font-semibold text-md text-indigo-700 dark:text-indigo-400 mb-1">{item.name}</h4>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                        <span className="text-gray-600 dark:text-gray-300">Количество:</span>
-                        <span className="font-medium text-gray-800 dark:text-dark-text">{item.quantity}</span>
-                        
-                        <span className="text-gray-600 dark:text-gray-300">Цена за ед. (до вычета):</span>
-                        <span className="font-medium text-gray-800 dark:text-dark-text">{item.price.toFixed(2)} ₽</span>
-                        
-                        <span className="text-gray-600 dark:text-gray-300">Цена за ед. (с вычетом {taxRate}%):</span>
-                        <span className="font-medium text-gray-800 dark:text-dark-text">{item.priceWithTax.toFixed(2)} ₽</span>
-                        
-                        <span className="text-gray-600 dark:text-gray-300">Итого по позиции (с вычетом):</span>
-                        <span className="font-semibold text-indigo-600 dark:text-indigo-300">{item.totalItemPriceWithTax.toFixed(2)} ₽</span>
-                      </div>
-                    </li>
-                  ))}
+                  {selectedRecordForDetails.items.map((item, index) => {
+                    const currentDefaultPercentage = appSettings?.defaultPercentage ?? 0;
+                    return (
+                      <li key={item.id || index} className="p-3 border border-gray-200 dark:border-dark-border rounded-md bg-gray-50 dark:bg-gray-700">
+                        <h4 className="font-semibold text-md text-indigo-700 dark:text-indigo-400 mb-1">{item.name}</h4>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                          <span className="text-gray-600 dark:text-gray-300">Количество:</span>
+                          <span className="font-medium text-gray-800 dark:text-dark-text">{item.quantity}</span>
+                          
+                          <span className="text-gray-600 dark:text-gray-300">Цена за ед. (до вычета):</span>
+                          <span className="font-medium text-gray-800 dark:text-dark-text">{item.price.toFixed(2)} ₽</span>
+                          
+                          <span className="text-gray-600 dark:text-gray-300">Цена за ед. (с вычетом {currentDefaultPercentage}%):</span>
+                          <span className="font-medium text-gray-800 dark:text-dark-text">{item.priceWithTax.toFixed(2)} ₽</span>
+                          
+                          <span className="text-gray-600 dark:text-gray-300">Итого по позиции (с вычетом):</span>
+                          <span className="font-semibold text-indigo-600 dark:text-indigo-300">{item.totalItemPriceWithTax.toFixed(2)} ₽</span>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-gray-500 dark:text-gray-400 text-center py-4">Нет позиций для отображения.</p>
@@ -974,7 +948,6 @@ const AssemblyRecords: React.FC = () => {
         </div>
       )}
 
-      {/* Кастомный диалог подтверждения */}
       {isConfirmDialogOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-dark-card rounded-lg shadow-xl w-full max-w-md p-6">
@@ -1001,7 +974,6 @@ const AssemblyRecords: React.FC = () => {
         </div>
       )}
 
-      {/* Кастомный диалог оповещения */}
       {isAlertDialogOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-dark-card rounded-lg shadow-xl w-full max-w-md p-6">
