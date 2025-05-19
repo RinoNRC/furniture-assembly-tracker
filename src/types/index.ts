@@ -57,3 +57,15 @@ export interface SalaryCalculation {
   isPaid: boolean;
   paymentDate?: string;
 }
+
+export interface User {
+  id: string;
+  name: string;
+  // добавьте другие поля пользователя, если они есть
+}
+
+export interface AppSettings {
+  id: number;
+  companyName: string;
+  defaultPercentage: number;
+}

@@ -73,6 +73,17 @@ function createTables() {
         FOREIGN KEY (locationId) REFERENCES locations (id)
       )
     `);
+
+    // Таблица настроек приложения
+    db.run(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        companyName TEXT DEFAULT 'Моя Компания',
+        defaultPercentage REAL DEFAULT 0
+      )
+    `);
+    // Убедимся, что строка с настройками существует
+    db.run(`INSERT OR IGNORE INTO app_settings (id) VALUES (1)`);
   });
 }
 
@@ -359,6 +370,68 @@ app.delete('/api/assembly-records/:id', (req, res) => {
     console.log('Запись о сборке удалена, id:', req.params.id);
     res.json({ message: 'Запись о сборке удалена' });
   });
+});
+
+// --- Настройки Приложения ---
+
+// Получение настроек приложения
+app.get('/api/settings', (req, res) => {
+  console.log('GET /api/settings - Получение настроек приложения');
+  db.get('SELECT companyName, defaultPercentage FROM app_settings WHERE id = 1', [], (err, row) => {
+    if (err) {
+      console.error('Ошибка при получении настроек приложения:', err.message);
+      // Если произошла ошибка, но это не "no such table" (таблица еще не создана), вернем ошибку
+      // Если таблица не создана, createTables должна была это исправить при запуске,
+      // но на всякий случай, если запрос пришел до полного создания.
+      // Однако, с INSERT OR IGNORE выше, строка должна существовать.
+      return res.status(500).json({ error: err.message });
+    }
+    if (row) {
+      res.json(row);
+    } else {
+      // Этого не должно произойти из-за INSERT OR IGNORE, но как fallback
+      console.warn('/api/settings: Строка настроек не найдена, возвращаем дефолтные значения.');
+      res.json({ companyName: 'Моя Компания', defaultPercentage: 0 });
+    }
+  });
+});
+
+// Обновление настроек приложения
+app.put('/api/settings', (req, res) => {
+  console.log('PUT /api/settings - Обновление настроек приложения:', req.body);
+  const { companyName, defaultPercentage } = req.body;
+
+  if (typeof companyName !== 'string' || companyName.trim() === '') {
+    return res.status(400).json({ error: 'Название компании не может быть пустым.' });
+  }
+  if (typeof defaultPercentage !== 'number' || isNaN(defaultPercentage) || defaultPercentage < 0 || defaultPercentage > 100) {
+    return res.status(400).json({ error: 'Процент должен быть числом от 0 до 100.' });
+  }
+
+  db.run(
+    'UPDATE app_settings SET companyName = ?, defaultPercentage = ? WHERE id = 1',
+    [companyName.trim(), defaultPercentage],
+    function(err) {
+      if (err) {
+        console.error('Ошибка при обновлении настроек приложения:', err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      if (this.changes === 0) {
+        // Этого не должно случиться, если строка с id=1 всегда существует
+        console.error('/api/settings: Попытка обновить несуществующую строку настроек (id=1).');
+        return res.status(404).json({ error: 'Строка настроек не найдена для обновления.' });
+      }
+      console.log('Настройки приложения обновлены.');
+      // Возвращаем обновленные настройки
+      // SQLite не возвращает обновленную строку в UPDATE, поэтому сделаем GET
+      db.get('SELECT companyName, defaultPercentage FROM app_settings WHERE id = 1', [], (getErr, updatedRow) => {
+        if (getErr) {
+          return res.status(500).json({ error: getErr.message });
+        }
+        res.json(updatedRow);
+      });
+    }
+  );
 });
 
 // Обслуживание статических файлов React-приложения

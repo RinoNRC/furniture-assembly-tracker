@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Employee, FurnitureItem, AssemblyRecord, SalaryCalculation, Location } from '../types';
+import { Employee, FurnitureItem, AssemblyRecord, SalaryCalculation, Location, AppSettings } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import * as ApiService from '../services/ApiService';
 import toast from 'react-hot-toast';
@@ -10,6 +10,7 @@ interface AppContextType {
   assemblyRecords: AssemblyRecord[];
   salaryCalculations: SalaryCalculation[];
   locations: Location[];
+  appSettings: AppSettings | null;
   addEmployee: (employee: Omit<Employee, 'id'>) => Promise<void>;
   updateEmployee: (employee: Employee) => Promise<void>;
   deleteEmployee: (id: string) => Promise<void>;
@@ -31,6 +32,7 @@ interface AppContextType {
   logout: () => void;
   currentUser: { name: string; email: string } | null;
   updateCurrentUser: (userData: { name: string; email: string; password?: string }) => void;
+  updateAppSettings: (settings: AppSettings) => Promise<void>;
   isLoading: boolean;
   theme: string; // 'light' or 'dark'
   toggleTheme: () => void;
@@ -65,6 +67,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
   
   const [locations, setLocations] = useState<Location[]>([]);
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
 
   // Состояние загрузки и ошибок
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -123,16 +126,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsLoading(true);
       const toastId = toast.loading('Загрузка основных данных...');
       try {
-        const [empData, recordsData, locationsData] = await Promise.all([
+        const [empData, recordsData, locationsData, settingsResponse] = await Promise.all([
           ApiService.fetchEmployees(),
           ApiService.fetchAssemblyRecords(),
-          ApiService.fetchLocations()
+          ApiService.fetchLocations(),
+          ApiService.fetchAppSettings()
         ]);
         
         setEmployees(empData);
         setAssemblyRecords(recordsData);
         setLocations(locationsData);
-        toast.dismiss(toastId); // Убираем уведомление после успешной загрузки
+        if (settingsResponse && settingsResponse.data) {
+          setAppSettings(settingsResponse.data);
+        } else {
+          // Если настройки не найдены (например, 404) или есть ошибка при загрузке
+          setAppSettings(null); // Устанавливаем в null или дефолтные, если есть
+          if (settingsResponse?.error) {
+            console.error("Error fetching app settings:", settingsResponse.error);
+            // Можно показать toast с ошибкой, если это не 404 (когда настройки просто еще не созданы)
+            if (!settingsResponse.message?.includes('Настройки приложения еще не установлены')) {
+                toast.error(`Ошибка загрузки настроек: ${settingsResponse.error}`);
+            }
+          } else if (settingsResponse?.message) {
+            // Сообщение о том, что настройки не установлены (например, при первом запуске)
+            // toast.info(settingsResponse.message); // Можно раскомментировать для отладки
+            console.info("App settings status:", settingsResponse.message);
+          }
+        }
+        toast.dismiss(toastId);
       } catch (err) {
         toast.error('Ошибка при загрузке основных данных', { id: toastId });
         console.error("Fetch Data Error:", err);
@@ -454,52 +475,67 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Функция обновления данных пользователя
   const updateCurrentUser = (userData: { name: string; email: string; password?: string }) => {
-    // Обновляем текущего пользователя
-    if (currentUser) {
-      const updatedUser = {
-        name: userData.name,
-        email: userData.email
+    if (userData.email === adminUser.email) {
+      const newAdminData = {
+        email: userData.email,
+        password: userData.password || adminUser.password,
+        name: userData.name
       };
-      setCurrentUser(updatedUser);
-      
-      // Обновляем данные администратора, если обновляется его профиль
-      if (userData.email === adminUser.email) {
-        const updatedAdmin = {
-          ...adminUser,
-          name: userData.name,
-          email: userData.email
-        };
-        
-        // Обновляем пароль, если он указан
-        if (userData.password) {
-          updatedAdmin.password = userData.password;
-        }
-        
-        setAdminUser(updatedAdmin);
-      }
+      setAdminUser(newAdminData);
+      setCurrentUser({ name: userData.name, email: userData.email });
+      localStorage.setItem(AUTH_KEY, JSON.stringify({ isLoggedIn, user: { name: userData.name, email: userData.email }, adminData: newAdminData }));
+      toast.success('Данные администратора обновлены.');
+    } else {
+      toast.error('Обновление данных других пользователей не разрешено.');
     }
   };
 
   // Функции аутентификации
   const login = (email: string, password: string) => {
-    // В реальном приложении здесь должна быть проверка через API
     if (email === adminUser.email && password === adminUser.password) {
       setIsLoggedIn(true);
-      setCurrentUser({
-        name: adminUser.name,
-        email: adminUser.email
-      });
+      setCurrentUser({ name: adminUser.name, email: adminUser.email });
+      localStorage.setItem(AUTH_KEY, JSON.stringify({ isLoggedIn: true, user: { name: adminUser.name, email: adminUser.email }, adminData: adminUser }));
+      toast.success(`Добро пожаловать, ${adminUser.name}!`);
       return true;
     }
+    toast.error('Неверный email или пароль.');
     return false;
   };
 
   const logout = () => {
     setIsLoggedIn(false);
     setCurrentUser(null);
-    // Можно сбросить тему к системной при выходе или оставить как есть
-    // const systemTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    // setTheme(systemTheme); 
+    localStorage.setItem(AUTH_KEY, JSON.stringify({ isLoggedIn: false, user: null, adminData: adminUser }));
+    setEmployees([]);
+    setAssemblyRecords([]);
+    setLocations([]);
+    setFurnitureItems([]);
+    setSalaryCalculations([]);
+    setAppSettings(null); // Сбрасываем настройки при выходе
+    toast.success('Вы успешно вышли из системы');
+  };
+
+  // AppSettings operations
+  const updateAppSettings = async (settings: AppSettings) => {
+    setIsLoading(true);
+    const toastId = toast.loading('Обновление настроек приложения...');
+    try {
+      const response = await ApiService.updateAppSettings(settings); // Теперь возвращает ApiResponse<AppSettings>
+      if (response.data) {
+        setAppSettings(response.data);
+        toast.success(response.message || 'Настройки приложения успешно обновлены!', { id: toastId });
+      } else if (response.error) {
+        toast.error(`Ошибка обновления настроек: ${response.error}`, { id: toastId });
+      } else {
+        toast.error('Не удалось обновить настройки. Ответ от сервера некорректен.', { id: toastId });
+      }
+    } catch (error) {
+      console.error("Update AppSettings Error:", error);
+      toast.error('Не удалось обновить настройки приложения.', { id: toastId });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const value = {
@@ -508,6 +544,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     assemblyRecords,
     salaryCalculations,
     locations,
+    appSettings,
     addEmployee,
     updateEmployee,
     deleteEmployee,
@@ -529,6 +566,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     logout,
     currentUser,
     updateCurrentUser,
+    updateAppSettings,
     isLoading,
     theme,
     toggleTheme

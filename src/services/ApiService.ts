@@ -1,4 +1,4 @@
-import { Employee, AssemblyRecord, Location } from '../types';
+import { Employee, AssemblyRecord, Location, AppSettings } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Использовать относительный путь к API
@@ -279,5 +279,45 @@ export const updateAssemblyRecord = async (id: string, recordData: Omit<Assembly
   } catch (error) {
     console.error('ApiService.updateAssemblyRecord error:', error);
     return { error: 'Сетевая ошибка или ошибка при обновлении записи о сборке' };
+  }
+};
+
+// --- Настройки Приложения ---
+
+export const fetchAppSettings = async (): Promise<ApiResponse<AppSettings>> => {
+  try {
+    const response = await fetch(`${API_URL}/settings`);
+    if (!response.ok) {
+      if (response.status === 404) {
+        // Настройки еще не установлены, это не ошибка, возвращаем null data
+        return { data: undefined, message: 'Настройки приложения еще не установлены.' };
+      }
+      throw new Error('Ошибка при получении настроек приложения');
+    }
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    console.error('Ошибка при получении настроек приложения:', error);
+    return { error: (error as Error).message };
+  }
+};
+
+export const updateAppSettings = async (settings: AppSettings): Promise<ApiResponse<AppSettings>> => {
+  try {
+    const response = await fetch(`${API_URL}/settings`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(settings),
+    });
+    if (!response.ok) {
+      throw new Error('Ошибка при обновлении настроек приложения');
+    }
+    const updatedSettings = await response.json();
+    return { data: updatedSettings, message: 'Настройки успешно обновлены' };
+  } catch (error) {
+    console.error('Ошибка при обновлении настроек приложения:', error);
+    return { error: (error as Error).message };
   }
 };
