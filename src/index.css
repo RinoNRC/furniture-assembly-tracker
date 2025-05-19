@@ -19,11 +19,13 @@
 body {
   font-family: 'Slave', sans-serif;
   @apply bg-white text-gray-800; /* Стили для светлой темы по умолчанию */
+  @apply transition-colors duration-300 ease-in-out; /* Добавляем плавный переход */
   overflow-y: scroll; /* Всегда показывать вертикальную полосу прокрутки */
 }
 
 .dark body {
   @apply bg-dark-background text-dark-text; /* Стили для темной темы */
+  /* Утилиты transition-colors и duration уже применены к body выше, они будут работать и для dark mode */
 }
 
 /* Анимации для строк таблицы сотрудников */
