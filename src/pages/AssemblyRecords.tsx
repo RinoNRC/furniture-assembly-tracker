@@ -145,6 +145,56 @@ const AssemblyRecords: React.FC = () => {
     };
   }, [isModalActuallyVisible]);
 
+  // Эффект для управления прокруткой body при открытии/закрытии модального окна "Детализация позиций"
+  useEffect(() => {
+    if (isItemDetailsModalActuallyVisible) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      // Только сбрасывать overflow, если другие модальные окна тоже не активны
+      if (!isModalActuallyVisible && !isConfirmDialogOpen && !isAlertDialogOpen) {
+        document.body.style.overflow = 'auto';
+      }
+    }
+    // Очистка при размонтировании компонента или изменении состояния
+    return () => {
+      if (!isModalActuallyVisible && !isConfirmDialogOpen && !isAlertDialogOpen) {
+         document.body.style.overflow = 'auto';
+      }
+    };
+  }, [isItemDetailsModalActuallyVisible, isModalActuallyVisible, isConfirmDialogOpen, isAlertDialogOpen]);
+
+  // Эффект для управления прокруткой body при открытии/закрытии ConfirmDialog
+  useEffect(() => {
+    if (isConfirmDialogOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      if (!isModalActuallyVisible && !isItemDetailsModalActuallyVisible && !isAlertDialogOpen) {
+        document.body.style.overflow = 'auto';
+      }
+    }
+    return () => {
+      if (!isModalActuallyVisible && !isItemDetailsModalActuallyVisible && !isAlertDialogOpen) {
+        document.body.style.overflow = 'auto';
+      }
+    };
+  }, [isConfirmDialogOpen, isModalActuallyVisible, isItemDetailsModalActuallyVisible, isAlertDialogOpen]);
+
+  // Эффект для управления прокруткой body при открытии/закрытии AlertDialog
+  useEffect(() => {
+    if (isAlertDialogOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      if (!isModalActuallyVisible && !isItemDetailsModalActuallyVisible && !isConfirmDialogOpen) {
+        document.body.style.overflow = 'auto';
+      }
+    }
+    return () => {
+      if (!isModalActuallyVisible && !isItemDetailsModalActuallyVisible && !isConfirmDialogOpen) {
+        document.body.style.overflow = 'auto';
+      }
+    };
+  }, [isAlertDialogOpen, isModalActuallyVisible, isItemDetailsModalActuallyVisible, isConfirmDialogOpen]);
+
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -875,7 +925,8 @@ const AssemblyRecords: React.FC = () => {
             className={[
               "bg-white dark:bg-dark-card rounded-lg shadow-xl w-full max-w-2xl", // max-w-2xl, можно настроить
               "transition-all duration-300 ease-in-out",
-              itemDetailsModalAnimationClass
+              itemDetailsModalAnimationClass,
+              "flex flex-col" // Для правильного расположения футера с кнопкой
             ].join(' ')}
             onClick={(e) => e.stopPropagation()}
           >
@@ -890,7 +941,7 @@ const AssemblyRecords: React.FC = () => {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-6 max-h-[60vh] overflow-y-auto"> {/* Добавлен max-h и overflow-y */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-130px)]"> {/* Вычитаем примерную высоту хедера и футера */} 
               {selectedRecordForDetails.items.length > 0 ? (
                 <ul className="space-y-3">
                   {selectedRecordForDetails.items.map((item, index) => (
