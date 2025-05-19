@@ -132,6 +132,19 @@ const AssemblyRecords: React.FC = () => {
     }
   }, [isItemDetailsModalOpen]);
 
+  // Эффект для управления прокруткой body при открытии/закрытии основного модального окна
+  useEffect(() => {
+    if (isModalActuallyVisible) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    // Очистка при размонтировании компонента
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isModalActuallyVisible]);
+
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -699,25 +712,17 @@ const AssemblyRecords: React.FC = () => {
       {/* Add/Edit Record Modal */}
       {isModalActuallyVisible && (
         <div 
-          className={[
-            "fixed inset-0 flex items-center justify-center z-50 p-4",
-            "transition-opacity duration-300 ease-in-out",
-            backdropAnimationClass
-          ].join(' ')}
-          onClick={handleCloseModal}
+          className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-300 ease-in-out ${backdropAnimationClass}`}
+          onClick={handleCloseModal} // Закрытие по клику на фон
         >
           <div 
-            className={[
-              "bg-white dark:bg-dark-card rounded-lg shadow-xl w-full max-w-4xl",
-              "transition-all duration-300 ease-in-out",
-              modalAnimationClass
-            ].join(' ')}
-            onClick={(e) => e.stopPropagation()}
+            className={`bg-white dark:bg-dark-card rounded-lg shadow-xl p-6 space-y-6 transform transition-all duration-300 ease-in-out w-full max-w-3xl ${modalAnimationClass} overflow-y-auto max-h-[90vh] pb-20 sm:pb-6`} // Изменено max-w-2xl на max-w-4xl
+            onClick={(e) => e.stopPropagation()} // Предотвращаем закрытие по клику внутри модалки
           >
-            <div className="flex justify-between items-center border-b px-6 py-4 dark:border-dark-border">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-dark-text">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-dark-text">
                 {isEditing ? 'Редактировать запись' : 'Добавить новую запись'}
-              </h3>
+              </h2>
               <button
                 onClick={handleCloseModal}
                 className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-300"
@@ -725,7 +730,7 @@ const AssemblyRecords: React.FC = () => {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-4"> {/* Удален класс p-6, добавлены внутренние отступы space-y-4 если нужно */} 
               <div className="grid grid-cols-1 gap-4 mb-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Select
