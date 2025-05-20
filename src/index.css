@@ -10,8 +10,8 @@
 }
 
 @font-face {
-  font-family: 'PublicPixel';
-  src: url('./assets/fonts/PublicPixel.ttf') format('truetype'); /* Исправлен путь */
+  font-family: 'test';
+  src: url('./assets/fonts/test.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
 }

@@ -9,7 +9,7 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
-        publicpixel: ['PublicPixel', 'sans-serif'],
+        pixel: ['test', 'sans-serif'],
       },
       colors: {
         dark: {
